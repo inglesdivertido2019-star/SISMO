@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1020">
+<title>Sismo Alerta Local v2 — TEIMECA</title>
+<style>
+:root{
+  --bg:#0b1020; --bg2:#101830;
+  --panel:rgba(255,255,255,.06); --line:rgba(255,255,255,.13);
+  --text:#e7ecf5; --muted:#9fb0c8; --accent:#4f8ef7;
+  --ok:#10b981; --warn:#f59e0b; --danger:#ef4444;
+  font-family:"Segoe UI",Roboto,Arial,system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#16224a 0%,var(--bg) 55%);color:var(--text);min-height:100vh}
+.app{max-width:940px;margin:auto;padding:16px}
+.hero,.panel,.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0;box-shadow:0 10px 30px rgba(0,0,0,.30)}
+.hero{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+.eyebrow{color:#8db4ff;font-size:12px;letter-spacing:.12em;text-transform:uppercase;margin:0 0 6px;font-weight:700}
+h1{font-size:30px;margin:0 0 6px;letter-spacing:-.02em}
+h2{font-size:17px;margin:0 0 10px}
+.lead{color:var(--muted);line-height:1.5;margin:0;font-size:14px}
+.badge{padding:8px 14px;border-radius:999px;font-weight:800;white-space:nowrap;font-size:13px}
+.b-danger{background:#7f1d1d;color:#fecaca}.b-ok{background:#064e3b;color:#bbf7d0}.b-warn{background:#78350f;color:#fde68a}
+.alert.live{border-color:var(--danger);background:rgba(153,27,27,.55);animation:pulse .9s infinite}
+@keyframes pulse{50%{transform:scale(1.012);box-shadow:0 0 40px rgba(239,68,68,.45)}}
+@media (prefers-reduced-motion:reduce){.alert.live{animation:none}}
+button{border:0;border-radius:14px;padding:14px 18px;margin:4px;font-size:15px;font-weight:800;background:var(--accent);color:#fff;cursor:pointer;min-height:52px;touch-action:manipulation}
+button:active{transform:translateY(1px)}
+button:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
+.secondary{background:#334155}.dangerBtn{background:#dc2626}.okBtn{background:#059669}
+button:disabled{opacity:.45;cursor:not-allowed}
+.controls{display:flex;flex-wrap:wrap}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.card{margin:0}
+.card span,.hint,small{color:var(--muted);font-size:12.5px}
+.card strong{display:block;font-size:26px;margin:6px 0;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+pre{white-space:pre-wrap;background:#060a16;padding:12px;border-radius:12px;max-height:240px;overflow:auto;font-size:12px;color:#b9c6da}
+canvas{width:100%;height:110px;display:block;background:#060a16;border-radius:12px}
+.manual{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+ol{margin:6px 0 0;padding-left:20px;color:var(--muted);line-height:1.7;font-size:14px}
+ul.hist{list-style:none;margin:0;padding:0;font-size:13px;color:var(--muted)}
+ul.hist li{padding:7px 0;border-bottom:1px dashed var(--line);font-variant-numeric:tabular-nums}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.banner{display:none;background:#7c2d12;border:1px solid #f97316;color:#ffedd5;border-radius:14px;padding:14px;margin:12px 0;font-size:14px;line-height:1.55}
+.banner.show{display:block}
+.banner b{color:#fdba74}
+.xyz{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:4px}
+.chk{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--muted)}
+@media(max-width:620px){.hero{display:block}h1{font-size:24px}.manual{grid-template-columns:1fr}.controls button{width:100%;margin:5px 0}}
+</style>
+</head>
+<body>
+<main class="app">
+
+<section class="hero">
+  <div>
+    <p class="eyebrow">TEIMECA · Seguridad sísmica</p>
+    <h1>Sismo Alerta Local <small style="color:#8db4ff">v2</small></h1>
+    <p class="lead">Detector de vibración usando el acelerómetro del teléfono, con filtrado de gravedad, calibración automática y alarma persistente. <b>No predice sismos ni sustituye alertas oficiales</b> (SASMEX / Protección Civil).</p>
+  </div>
+  <div id="statusBadge" class="badge b-danger">Inactivo</div>
+</section>
+
+<div id="banner" class="banner" role="alert"></div>
+
+<section class="panel alert" id="alertPanel">
+  <h2 id="alertTitle">Sin alerta</h2>
+  <p id="alertText" class="lead">1) Pulsa <b>Probar alarma</b> para verificar sonido y vibración. 2) Coloca el teléfono sobre una superficie firme. 3) Pulsa <b>Activar detector</b> y luego <b>Calibrar</b>.</p>
+  <button id="silenceBtn" class="secondary" type="button">Silenciar alarma</button>
+</section>
+
+<section class="panel">
+  <h2>Controles</h2>
+  <div class="controls">
+    <button id="startBtn" type="button">Activar detector</button>
+    <button id="calibrateBtn" class="okBtn" type="button" disabled>Calibrar (3 s)</button>
+    <button id="testBtn" type="button">Probar alarma</button>
+    <button id="stopBtn" class="secondary" type="button">Detener</button>
+    <button id="diagBtn" class="secondary" type="button">Diagnóstico</button>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <label class="chk"><input type="checkbox" id="wakeChk" checked> Mantener pantalla encendida</label>
+    <label class="chk"><input type="checkbox" id="persistChk" checked> Alarma continua hasta silenciar</label>
+  </div>
+</section>
+
+<section class="grid">
+  <article class="card"><span>Vibración neta</span><strong id="accel">0.00</strong><small>m/s² (sin gravedad)</small></article>
+  <article class="card"><span>Pico registrado</span><strong id="peak">0.00</strong><small>m/s² máximo</small></article>
+  <article class="card"><span>Umbral</span><strong id="thresholdLabel">3.0</strong><small>Más bajo = más sensible</small></article>
+  <article class="card"><span>Sensor</span><strong id="sensorState">No iniciado</strong><small id="secureState">—</small><div class="xyz" id="xyz">x — · y — · z —</div><div class="xyz" id="evCount">eventos: 0</div></article>
+</section>
+
+<section class="panel">
+  <h2>Actividad en tiempo real</h2>
+  <canvas id="chart" width="880" height="110" aria-label="Gráfica de vibración"></canvas>
+</section>
+
+<section class="panel">
+  <label for="threshold"><b>Sensibilidad (umbral de disparo)</b></label>
+  <input id="threshold" type="range" min="0.5" max="10" step="0.1" value="3">
+  <p class="hint">La alerta requiere vibración <b>sostenida</b> (3 lecturas sobre el umbral en ~1.2 s) para evitar falsas alarmas por golpes. Un impacto muy fuerte (2× el umbral) dispara de inmediato. Usa <b>Calibrar</b> para ajustar el umbral al ruido de tu superficie.</p>
+</section>
+
+<section class="panel manual">
+  <button id="simulateLight" class="secondary" type="button">Simular vibración leve</button>
+  <button id="simulateStrong" class="dangerBtn" type="button">Simular vibración fuerte</button>
+</section>
+
+<section class="panel">
+  <h2>Historial de alertas</h2>
+  <ul class="hist" id="history"><li id="histEmpty">Sin alertas registradas en esta sesión.</li></ul>
+</section>
+
+<section class="panel">
+  <h2>Qué hacer si tiembla</h2>
+  <ol>
+    <li>Agáchate, cúbrete y agárrate.</li>
+    <li>Aléjate de ventanas y objetos que puedan caer.</li>
+    <li>No uses ascensores.</li>
+    <li>Después del movimiento, revisa fugas de gas, cables, grietas y rutas de salida.</li>
+  </ol>
+</section>
+
+<section class="panel">
+  <h2>Diagnóstico</h2>
+  <pre id="log">Cargando app…</pre>
+</section>
+
+</main>
+
+<script>
+(function(){
+"use strict";
+function $(id){return document.getElementById(id)}
+
+/* ---------- Referencias UI ---------- */
+var startBtn=$('startBtn'),stopBtn=$('stopBtn'),testBtn=$('testBtn'),diagBtn=$('diagBtn'),
+    silenceBtn=$('silenceBtn'),calibrateBtn=$('calibrateBtn'),
+    alertPanel=$('alertPanel'),alertTitle=$('alertTitle'),alertText=$('alertText'),
+    accelEl=$('accel'),peakEl=$('peak'),threshold=$('threshold'),thresholdLabel=$('thresholdLabel'),
+    sensorState=$('sensorState'),secureState=$('secureState'),statusBadge=$('statusBadge'),
+    logEl=$('log'),historyEl=$('history'),histEmpty=$('histEmpty'),
+    wakeChk=$('wakeChk'),persistChk=$('persistChk'),
+    banner=$('banner'),xyzEl=$('xyz'),evCountEl=$('evCount'),
+    chart=$('chart'),ctx=chart.getContext('2d');
+var evCount=0;
+function showBanner(html){banner.innerHTML=html;banner.classList.add('show')}
+function hideBanner(){banner.classList.remove('show')}
+
+/* ---------- Estado ---------- */
+var running=false,alarmOn=false,lastAlert=0,lastEventTime=0,peak=0;
+var gravity={x:0,y:0,z:9.81},gInit=false;           // estimador de gravedad (paso-bajo)
+var hits=[];                                         // marcas de tiempo sobre umbral
+var samples=[];                                      // buffer para la gráfica (~6 s)
+var calibrating=false,calSamples=[];
+var audioCtxA=null,osc=null,lfo=null,lfoGain=null,gainNode=null;
+var vibTimer=null,alarmSafety=null,wakeLock=null;
+var ALPHA=0.06;                                      // suavizado del filtro de gravedad
+var HIT_WINDOW=1200,HIT_COUNT=3;                     // vibración sostenida
+
+/* ---------- Utilidades ---------- */
+function log(m){logEl.textContent=(new Date()).toLocaleTimeString()+' · '+m+'\n'+logEl.textContent}
+function badge(t,c){statusBadge.textContent=t;statusBadge.className='badge '+c}
+function setText(t,x){alertTitle.textContent=t;alertText.textContent=x}
+function thr(){return parseFloat(threshold.value)}
+
+/* ---------- Sirena (barrido de frecuencia) ---------- */
+function startSiren(){
+  try{
+    var AC=window.AudioContext||window.webkitAudioContext;
+    if(!AC){log('AudioContext no disponible.');return}
+    if(!audioCtxA)audioCtxA=new AC();
+    if(audioCtxA.state==='suspended')audioCtxA.resume();
+    if(osc)return;
+    osc=audioCtxA.createOscillator(); osc.type='square'; osc.frequency.value=750;
+    lfo=audioCtxA.createOscillator(); lfo.type='sine'; lfo.frequency.value=2.5;
+    lfoGain=audioCtxA.createGain(); lfoGain.gain.value=280;      // 750 ± 280 Hz
+    gainNode=audioCtxA.createGain(); gainNode.gain.value=0.28;
+    lfo.connect(lfoGain); lfoGain.connect(osc.frequency);
+    osc.connect(gainNode); gainNode.connect(audioCtxA.destination);
+    osc.start(); lfo.start();
+  }catch(e){log('Audio bloqueado: '+e.message)}
+}
+function stopSiren(){
+  try{
+    if(osc){osc.stop();osc.disconnect();osc=null}
+    if(lfo){lfo.stop();lfo.disconnect();lfo=null}
+    if(lfoGain){lfoGain.disconnect();lfoGain=null}
+    if(gainNode){gainNode.disconnect();gainNode=null}
+  }catch(e){}
+}
+function startVib(){
+  stopVib();
+  if(!navigator.vibrate)return;
+  var pat=function(){try{navigator.vibrate([500,140,500,140,900])}catch(e){}};
+  pat(); vibTimer=setInterval(pat,2400);
+}
+function stopVib(){if(vibTimer){clearInterval(vibTimer);vibTimer=null} try{if(navigator.vibrate)navigator.vibrate(0)}catch(e){}}
+
+/* ---------- Alerta ---------- */
+function trigger(reason,value){
+  var now=Date.now();
+  if(now-lastAlert<2000)return;
+  lastAlert=now; alarmOn=true;
+  alertPanel.classList.add('live');
+  setText('⚠ ALERTA DE MOVIMIENTO',reason+' · Agáchate, cúbrete y agárrate.');
+  badge('ALERTA','b-danger');
+  startSiren(); startVib();
+  clearTimeout(alarmSafety);
+  if(persistChk.checked){
+    alarmSafety=setTimeout(silence,120000); // tope de seguridad: 2 min
+  }else{
+    alarmSafety=setTimeout(silence,10000);
+  }
+  addHistory(reason,value);
+  log('ALERTA: '+reason);
+}
+function silence(){
+  alarmOn=false; stopSiren(); stopVib();
+  clearTimeout(alarmSafety);
+  alertPanel.classList.remove('live');
+  if(running){setText('Detector activo','Monitoreando vibración del dispositivo.');badge('Activo','b-ok')}
+  log('Alarma silenciada');
+}
+function addHistory(reason,value){
+  if(histEmpty){histEmpty.remove();histEmpty=null}
+  var li=document.createElement('li');
+  li.textContent=(new Date()).toLocaleTimeString()+' — '+reason+(value?(' (pico '+value.toFixed(1)+' m/s²)'):'');
+  historyEl.insertBefore(li,historyEl.firstChild);
+  while(historyEl.children.length>12)historyEl.removeChild(historyEl.lastChild);
+}
+
+/* ---------- Detección: gravedad filtrada + vibración sostenida ---------- */
+function netMagnitude(e){
+  var lin=e.acceleration;
+  if(lin && lin.x!==null && lin.x!==undefined){        // sensor entrega aceleración lineal
+    var x=lin.x||0,y=lin.y||0,z=lin.z||0;
+    return Math.sqrt(x*x+y*y+z*z);
+  }
+  var g=e.accelerationIncludingGravity||{};
+  var gx=Number(g.x)||0,gy=Number(g.y)||0,gz=Number(g.z)||0;
+  if(!gInit){gravity={x:gx,y:gy,z:gz};gInit=true}
+  gravity.x+=ALPHA*(gx-gravity.x);
+  gravity.y+=ALPHA*(gy-gravity.y);
+  gravity.z+=ALPHA*(gz-gravity.z);
+  var dx=gx-gravity.x,dy=gy-gravity.y,dz=gz-gravity.z;
+  return Math.sqrt(dx*dx+dy*dy+dz*dz);
+}
+function motionHandler(e){
+  if(!running)return;
+  lastEventTime=Date.now();
+  evCount++;
+  if(evCount===1){hideBanner();log('Primer evento del sensor recibido: el acelerómetro funciona.')}
+  if(evCount%5===0||evCount===1){
+    var raw=e.accelerationIncludingGravity||e.acceleration||{};
+    xyzEl.textContent='x '+(Number(raw.x)||0).toFixed(1)+' · y '+(Number(raw.y)||0).toFixed(1)+' · z '+(Number(raw.z)||0).toFixed(1);
+    evCountEl.textContent='eventos: '+evCount;
+  }
+  var m=netMagnitude(e);
+  accelEl.textContent=m.toFixed(2);
+  if(m>peak){peak=m;peakEl.textContent=peak.toFixed(2)}
+  pushSample(m);
+  if(calibrating){calSamples.push(m);return}
+  var t=thr(),now=Date.now();
+  if(m>=t*2){trigger('Impacto fuerte: '+m.toFixed(1)+' m/s²',m);hits.length=0;return}
+  if(m>=t){
+    hits.push(now);
+    while(hits.length && now-hits[0]>HIT_WINDOW)hits.shift();
+    if(hits.length>=HIT_COUNT){trigger('Vibración sostenida: '+m.toFixed(1)+' m/s²',m);hits.length=0}
+  }
+}
+
+/* ---------- Calibración ---------- */
+function calibrate(){
+  if(!running){log('Activa el detector antes de calibrar.');return}
+  calibrating=true;calSamples=[];
+  calibrateBtn.disabled=true;calibrateBtn.textContent='Calibrando…';
+  setText('Calibrando','No muevas el teléfono durante 3 segundos.');
+  setTimeout(function(){
+    calibrating=false;
+    calibrateBtn.disabled=false;calibrateBtn.textContent='Calibrar (3 s)';
+    if(calSamples.length<10){log('Calibración sin datos suficientes ('+calSamples.length+' muestras). Verifica el sensor.');clearActive();return}
+    var n=calSamples.length,mean=0,i;
+    for(i=0;i<n;i++)mean+=calSamples[i]; mean/=n;
+    var sd=0; for(i=0;i<n;i++)sd+=Math.pow(calSamples[i]-mean,2); sd=Math.sqrt(sd/n);
+    var suggested=Math.min(10,Math.max(0.8,mean+8*sd));
+    threshold.value=suggested.toFixed(1);
+    thresholdLabel.textContent=parseFloat(threshold.value).toFixed(1);
+    peak=0;peakEl.textContent='0.00';
+    log('Calibración: ruido medio '+mean.toFixed(2)+' ± '+sd.toFixed(2)+' m/s² ('+n+' muestras). Umbral ajustado a '+threshold.value+'.');
+    clearActive();
+  },3000);
+}
+
+/* ---------- Wake Lock ---------- */
+function requestWake(){
+  if(!wakeChk.checked||!('wakeLock' in navigator))return;
+  navigator.wakeLock.request('screen').then(function(wl){
+    wakeLock=wl;log('Pantalla bloqueada en encendido (Wake Lock).');
+    wl.addEventListener('release',function(){log('Wake Lock liberado.')});
+  }).catch(function(e){log('Wake Lock no concedido: '+e.message)});
+}
+function releaseWake(){if(wakeLock){wakeLock.release().catch(function(){});wakeLock=null}}
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible'&&running)requestWake();
+});
+
+/* ---------- Ciclo de vida ---------- */
+function start(){
+  log('Botón Activar detector presionado');
+  try{
+    if(typeof DeviceMotionEvent==='undefined')throw new Error('Este navegador no expone DeviceMotionEvent');
+    if(typeof DeviceMotionEvent.requestPermission==='function'){
+      DeviceMotionEvent.requestPermission().then(function(res){
+        if(res==='granted')enable();
+        else{sensorState.textContent='Bloqueado';badge('Bloqueado','b-warn');setText('Sensor bloqueado','Permiso de movimiento denegado ('+res+'). Actívalo en Ajustes de Safari > Movimiento y orientación.');log('Permiso denegado: '+res)}
+      }).catch(function(e){sensorState.textContent='Bloqueado';badge('Bloqueado','b-warn');setText('Sensor bloqueado',e.message);log('Error de permiso: '+e.message)});
+    }else enable();
+  }catch(e){
+    sensorState.textContent='No disponible';badge('No disponible','b-warn');
+    setText('Sensor no disponible',e.message+'. Los botones sí funcionan; usa Probar alarma.');
+    log('Error al iniciar: '+e.message);
+  }
+}
+function enable(){
+  running=true;gInit=false;hits.length=0;peak=0;peakEl.textContent='0.00';lastEventTime=0;evCount=0;
+  evCountEl.textContent='eventos: 0';
+  window.removeEventListener('devicemotion',motionHandler);
+  window.addEventListener('devicemotion',motionHandler,false);
+  sensorState.textContent='Activo';calibrateBtn.disabled=false;
+  clearActive();requestWake();
+  log('Sensor activo. Agita el teléfono: el contador de "eventos" debe subir.');
+  setTimeout(function(){
+    if(!running||lastEventTime)return;
+    sensorState.textContent='Sin datos';badge('Sin datos','b-warn');
+    var causa;
+    if(!window.isSecureContext){
+      causa='<b>Causa detectada: la página no está en HTTPS.</b> Estás abriendo el archivo de forma local (file:// o desde el explorador de archivos) y el navegador bloquea el acelerómetro por seguridad.<br><br><b>Solución:</b> sube este archivo a un hosting con HTTPS (GitHub Pages, Netlify, tu servidor) y ábrelo desde esa dirección https:// en el teléfono.';
+    }else if(/Windows|Macintosh|Linux x86/i.test(navigator.userAgent)&&!/Mobile|Android|iPhone|iPad/i.test(navigator.userAgent)){
+      causa='<b>Causa detectada: este equipo parece ser una computadora de escritorio o laptop</b>, que normalmente no tiene acelerómetro. Abre esta misma dirección en un teléfono o tableta.';
+    }else{
+      causa='<b>El navegador acepta la API pero el sensor no entrega datos.</b> Prueba: (1) abrir en Chrome o Safari directamente, no dentro de otra app (WhatsApp, Facebook, correo); (2) en iPhone: Ajustes → Safari → activar "Movimiento y orientación" y recargar; (3) recargar la página y volver a pulsar Activar detector.';
+    }
+    showBanner('⚠ <b>El sensor no está entregando lecturas</b> (0 eventos en 3.5 s).<br><br>'+causa);
+    log('Sin eventos del sensor tras 3.5 s. Ver banner con la causa detectada.');
+  },3500);
+}
+function stop(){
+  running=false;calibrating=false;
+  window.removeEventListener('devicemotion',motionHandler);
+  sensorState.textContent='Detenido';calibrateBtn.disabled=true;
+  badge('Inactivo','b-danger');setText('Sin alerta','Detector detenido.');
+  silence();releaseWake();log('Detector detenido');
+}
+function clearActive(){
+  alertPanel.classList.remove('live');
+  setText('Detector activo','Monitoreando vibración del dispositivo.');
+  badge('Activo','b-ok');
+}
+
+/* ---------- Gráfica ---------- */
+function pushSample(m){samples.push(m);if(samples.length>360)samples.shift()}
+function drawChart(){
+  var w=chart.width,h=chart.height,t=thr();
+  ctx.clearRect(0,0,w,h);
+  // línea de umbral
+  var maxV=Math.max(t*1.6,4,peak*1.05);
+  var yThr=h-(t/maxV)*h;
+  ctx.strokeStyle='rgba(239,68,68,.7)';ctx.setLineDash([5,4]);
+  ctx.beginPath();ctx.moveTo(0,yThr);ctx.lineTo(w,yThr);ctx.stroke();ctx.setLineDash([]);
+  // señal
+  ctx.strokeStyle='#4f8ef7';ctx.lineWidth=2;ctx.beginPath();
+  var n=samples.length;
+  for(var i=0;i<n;i++){
+    var x=(i/(360-1))*w, y=h-(Math.min(samples[i],maxV)/maxV)*h;
+    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+  requestAnimationFrame(drawChart);
+}
+requestAnimationFrame(drawChart);
+
+/* ---------- Diagnóstico ---------- */
+function diagnostic(){
+  var L=[];
+  L.push('Botones: OK, JavaScript activo');
+  L.push('Navegador: '+navigator.userAgent);
+  L.push('Contexto seguro (HTTPS): '+(window.isSecureContext?'sí':'no'));
+  L.push('DeviceMotionEvent: '+(typeof DeviceMotionEvent));
+  L.push('Permiso iOS motion: '+(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'?'requiere permiso':'no requerido / no disponible'));
+  L.push('Vibración: '+(navigator.vibrate?'sí':'no'));
+  L.push('AudioContext: '+((window.AudioContext||window.webkitAudioContext)?'sí':'no'));
+  L.push('Wake Lock: '+('wakeLock' in navigator?'sí':'no'));
+  L.push('Último evento del sensor: '+(lastEventTime?new Date(lastEventTime).toLocaleTimeString():'ninguno'));
+  log(L.join('\n'));
+}
+
+/* ---------- Eventos ---------- */
+threshold.addEventListener('input',function(){thresholdLabel.textContent=thr().toFixed(1)});
+startBtn.onclick=start;
+stopBtn.onclick=stop;
+testBtn.onclick=function(){log('Prueba manual de alarma');trigger('Prueba manual de alarma',0)};
+diagBtn.onclick=diagnostic;
+silenceBtn.onclick=silence;
+calibrateBtn.onclick=calibrate;
+$('simulateLight').onclick=function(){var v=thr()*0.6;accelEl.textContent=v.toFixed(2);pushSample(v);log('Simulación leve: '+v.toFixed(1)+' m/s² (bajo el umbral, no dispara)')};
+$('simulateStrong').onclick=function(){var v=thr()*2.2;accelEl.textContent=v.toFixed(2);pushSample(v);trigger('Simulación fuerte: '+v.toFixed(1)+' m/s²',v)};
+wakeChk.onchange=function(){if(wakeChk.checked&&running)requestWake();else releaseWake()};
+
+secureState.textContent=window.isSecureContext?'Seguro / HTTPS':'Local o sin HTTPS';
+if(!window.isSecureContext){
+  showBanner('⚠ <b>Aviso antes de empezar:</b> esta página se abrió sin HTTPS (archivo local). Los botones y la alarma funcionarán, pero <b>el acelerómetro estará bloqueado por el navegador</b> y "Vibración neta" se quedará en 0.00 aunque agites el teléfono.<br><br><b>Para que el sensor funcione:</b> sube este archivo a un sitio con HTTPS (por ejemplo GitHub Pages o Netlify) y ábrelo desde esa dirección en el teléfono.');
+}
+log('App v2.1 cargada. Orden sugerido: Probar alarma → Activar detector → agitar y ver contador de eventos → Calibrar.');
+})();
+</script>
+</body>
+</html>
